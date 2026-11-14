@@ -1,0 +1,8 @@
+.env
+*.key
+__pycache__/
+.ipynb_checkpoints/
+*.pt
+*.bin
+*.safetensors
+models/
