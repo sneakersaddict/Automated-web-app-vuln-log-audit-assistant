@@ -1,4 +1,4 @@
-BENIGN_THR = 0.90   # tuned on val.csv in Phase D
+BENIGN_THR = 0.80   # tuned on val.csv
 MAL_THR = 0.85
 SEVERITY = {"SQLi": "high", "PathTraversal": "high", "XSS": "medium"}
 
