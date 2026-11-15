@@ -1,0 +1,10 @@
+category,owasp_id,passage
+SQL Injection,A03:2021,SQL Injection occurs when untrusted user input is inserted directly into SQL queries. Attackers may manipulate database queries using payloads such as OR 1=1. Use parameterized queries or prepared statements to prevent SQL injection.
+SQL Injection,A03:2021,"SQL Injection can allow attackers to bypass authentication, read sensitive database information, modify records or delete data. Developers should never concatenate untrusted input directly into SQL statements."
+SQL Injection,A03:2021,Secure code fix for SQL Injection: use prepared statements with parameter binding. Validate input according to expected types and apply least privilege to database accounts.
+Cross-Site Scripting (XSS),A03:2021,Cross-Site Scripting (XSS) occurs when untrusted input is included in a web page without proper output encoding. An attacker may inject JavaScript such as <script>alert(1)</script> into a vulnerable page.
+Cross-Site Scripting (XSS),A03:2021,"XSS attacks may execute malicious scripts in a victim's browser, steal session information or manipulate page content. Use context-aware output encoding and sanitize HTML when needed."
+Cross-Site Scripting (XSS),A03:2021,"Secure code fix for XSS: encode untrusted data before displaying it in HTML, use safe templating mechanisms and avoid unsafe JavaScript functions such as innerHTML with untrusted input."
+Path Traversal,A01:2021,"Path Traversal occurs when an attacker manipulates file paths using sequences such as ../ to access files outside the intended directory, for example /etc/passwd."
+Path Traversal,A01:2021,"Path Traversal can expose sensitive server files, configuration files or credentials. Applications should restrict file access to authorized directories and validate requested file paths."
+Path Traversal,A01:2021,"Secure code fix for Path Traversal: use canonical paths, resolve the requested file path and verify that it remains inside the authorized base directory. Avoid trusting user-supplied paths."
