@@ -6,3 +6,5 @@ __pycache__/
 *.bin
 *.safetensors
 models/
+data/raw/csic_database.csv
+venv/
