@@ -3,6 +3,6 @@ scikit-learn
 sentence-transformers
 transformers
 torch
-google-generativeai
+google-genai
 datasets
 joblib
