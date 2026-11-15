@@ -4,3 +4,5 @@ sentence-transformers
 transformers
 torch
 google-generativeai
+datasets
+joblib
