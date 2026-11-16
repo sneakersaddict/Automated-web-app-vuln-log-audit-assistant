@@ -17,7 +17,7 @@ Pipeline: parse log -> classify (malicious/benign) -> retrieve OWASP passages ->
 ## How to run
 1. pip install -r requirements.txt
 2. Plan B classifier: python3 -m src.train_planb ; evaluation: python3 -m src.evaluate
-3. Fine-tuned model: weights are in Google Drive (link: PASTE_DRIVE_LINK). Set FT_MODEL_DIR to the folder.
+3. Fine-tuned model: weights are in Google Drive (https://drive.google.com/drive/folders/1L-6Hf1VPh37gvZNZh2MomIPddOFTsCj4?usp=sharing). Set FT_MODEL_DIR to the folder.
 4. Full pipeline: run notebooks/pipeline_evaluation.ipynb in Colab (needs GEMINI_API_KEY in Colab Secrets).
 
 ## Rules
