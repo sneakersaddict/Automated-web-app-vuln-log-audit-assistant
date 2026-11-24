@@ -1,0 +1,9 @@
+{
+    "classifier": "DistilBERT fine-tuné",
+    "classifier_accuracy": 0.95,
+    "retrieval_top1": 0.7857142857142857,
+    "retrieval_recall_at_3": 1.0,
+    "test_cases": 20,
+    "pipeline_accuracy": 0.95,
+    "baseline_accuracy_strict": 0.95
+}

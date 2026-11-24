@@ -1,0 +1,21 @@
+id,truth,attack_type,pred,conf,top1,top3,decision
+48,malicious,SQLi,malicious,0.9961,SQLi,"['SQLi', 'SQLi', 'PathTraversal']",HIGH_PRIORITY_ALERT
+33,malicious,SQLi,malicious,0.9963,XSS,"['XSS', 'SQLi', 'XSS']",FLAG_FOR_REVIEW
+75,malicious,SQLi,malicious,0.9963,SQLi,"['SQLi', 'XSS', 'XSS']",HIGH_PRIORITY_ALERT
+49,malicious,SQLi,benign,0.9855,,"['SQLi', 'SQLi', 'PathTraversal']",AUTO_CLOSE
+119,malicious,SQLi,malicious,0.9964,SQLi,"['SQLi', 'XSS', 'SQLi']",HIGH_PRIORITY_ALERT
+73,malicious,XSS,malicious,0.9959,XSS,"['XSS', 'XSS', 'XSS']",FLAG_FOR_REVIEW
+67,malicious,XSS,malicious,0.9964,XSS,"['XSS', 'XSS', 'SQLi']",FLAG_FOR_REVIEW
+91,malicious,XSS,malicious,0.9957,SQLi,"['SQLi', 'XSS', 'SQLi']",HIGH_PRIORITY_ALERT
+70,malicious,XSS,malicious,0.9964,XSS,"['XSS', 'XSS', 'XSS']",FLAG_FOR_REVIEW
+138,malicious,XSS,malicious,0.9964,XSS,"['XSS', 'XSS', 'SQLi']",FLAG_FOR_REVIEW
+8,malicious,PathTraversal,malicious,0.9954,PathTraversal,"['PathTraversal', 'PathTraversal', 'PathTraversal']",HIGH_PRIORITY_ALERT
+50,malicious,PathTraversal,malicious,0.9964,PathTraversal,"['PathTraversal', 'PathTraversal', 'PathTraversal']",HIGH_PRIORITY_ALERT
+81,malicious,PathTraversal,malicious,0.9839,PathTraversal,"['PathTraversal', 'PathTraversal', 'PathTraversal']",HIGH_PRIORITY_ALERT
+55,malicious,PathTraversal,malicious,0.9965,PathTraversal,"['PathTraversal', 'SQLi', 'PathTraversal']",HIGH_PRIORITY_ALERT
+26,benign,none,benign,0.9846,,"['SQLi', 'XSS', 'XSS']",AUTO_CLOSE
+36,benign,none,benign,0.9648,,"['PathTraversal', 'PathTraversal', 'PathTraversal']",AUTO_CLOSE
+144,benign,none,benign,0.985,,"['XSS', 'SQLi', 'SQLi']",AUTO_CLOSE
+45,benign,none,benign,0.9912,,"['SQLi', 'SQLi', 'XSS']",AUTO_CLOSE
+133,benign,none,benign,0.992,,"['SQLi', 'SQLi', 'XSS']",AUTO_CLOSE
+129,benign,none,benign,0.9594,,"['SQLi', 'SQLi', 'SQLi']",AUTO_CLOSE

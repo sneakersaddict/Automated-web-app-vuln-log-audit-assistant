@@ -1,0 +1,802 @@
+id,truth,attack_type,pipeline_label,pipeline_confidence,pipeline_attack_type,pipeline_decision,pipeline_report,baseline_text,baseline_label
+48,malicious,SQLi,malicious,0.9961342811584473,SQLi,HIGH_PRIORITY_ALERT,"```text
+1. Incident Summary
+- Source IP: 192.168.153.232
+- Timestamp: 01/Nov/2026:01:20:50 +0000
+- Request Method: GET
+- Request URI: /login?user=admin%27%20oR%20%271%27%3D%271
+- Extracted Payload: {'user': [""admin' oR '1'='1""]}
+- HTTP Status / Response Size: 200 659
+- Detection Status: Flagged as MALICIOUS by the classifier (Confidence: 0.9961)
+
+2. Classification
+- Indicator of Compromise (IoC) / Attack Attempt (Unconfirmed Exploitation)
+
+3. Potential Attack Type
+- SQL Injection (SQLi) - Boolean-based tautology manipulation.
+
+4. Potential Impact
+- Depending on how the backend constructs the SQL query, an attacker could bypass authentication checks, gain unauthorized access to accounts (such as the 'admin' user), or extract sensitive data from the database. 
+- Note: While the request indicates an explicit attack attempt, the HTTP response status of 200 does not automatically confirm successful exploitation without reviewing application logs, database queries, and internal state.
+
+5. Recommended Mitigation
+- Use Prepared Statements and Parameterized Queries: Ensure that user-supplied input is never directly concatenated into SQL statements.
+- Input Validation: Implement strict allow-lists for expected input types and lengths.
+- Principle of Least Privilege: Restrict the database account used by the application to only the permissions required for its normal operation.
+
+6. Secure Code Fix (Language-Neutral Guidance)
+- Replace dynamic query string concatenation with parameterized interfaces provided by the application framework or database driver. 
+- Example pattern (Conceptual):
+  Instead of: `SELECT * FROM users WHERE username = '` + input + `'`
+  Use: `SELECT * FROM users WHERE username = ?` (binding the input safely as a parameter).
+```","1. **Classification:** Malicious
+
+2. **Attack Type:** SQL Injection (SQLi)
+
+3. **Explanation:** 
+   The request targets the `/login` endpoint with a manipulated query string parameter: `user=admin%27%20oR%20%271%27%3D%271`. 
+   URL-decoded, the parameter reads: `user=admin' oR '1'='1`. 
+   This is a classic authentication bypass technique using a boolean-based SQL injection payload. If the backend application improperly concatenates user input directly into a SQL query, the logical condition (`'1'='1'`) will always evaluate to true. This can trick the database into returning the ""admin"" user record without requiring a valid password, potentially granting unauthorized administrative access to the application.
+
+4. **Recommendation:** 
+   * **Use Parameterized Queries (Prepared Statements):** Ensure that all database interactions use parameterized queries or an Object-Relational Mapper (ORM) rather than string concatenation. This ensures user input is treated strictly as data, never as executable code.
+   * **Input Validation & Sanitization:** Implement strict allow-listing for expected input formats on authentication endpoints.
+   * **Web Application Firewall (WAF):** Configure WAF rules to detect and block common SQL injection signatures and URL-encoded query anomalies.",malicious
+33,malicious,SQLi,malicious,0.9962759017944336,XSS,FLAG_FOR_REVIEW,"### 1. Incident Summary
+An HTTP POST request originating from the IP address `192.168.196.127` was directed at the endpoint `/tienda1/publico/autenticar.jsp`. The query string contains a heavily obfuscated and structurally manipulated value in the `modo` parameter: `entrar', '0', '0', '0');waitfor delay '0:0:15';--`. This pattern is characteristic of a time-based blind SQL injection attempt aimed at disrupting or probing the underlying database backend used by the authentication page.
+
+### 2. Classification
+* **Status:** Malicious (Confidence: 0.9963)
+* **Indicator vs. Confirmed Exploitation:** The logs display a **detected indicator of attack** (an injection payload within the HTTP request). There is no sufficient evidence in the log (such as a database error trace or a successful HTTP 200 response reflecting time delays combined with successful authentication) to confirm successful exploitation. The HTTP status code returned is `400` (Bad Request), suggesting the application or an intermediary web application firewall (WAF) may have rejected the malformed input.
+
+### 3. Potential Attack Type
+* **SQL Injection (SQLi) / Time-Based Blind SQL Injection and Stacked Queries:** The attacker attempts to escape the original SQL string context using a single quote (`'`), close existing query syntax with a parenthesis and comma (`'0','0','0')`), append a stacked command using a semicolon (`;`), and introduce a time delay (`waitfor delay '0:0:15'`) followed by an SQL comment operator (`--`) to neutralize the remainder of the original query.
+
+### 4. Potential Impact
+* **Confidentiality:** If successful, attackers can leverage blind SQL injection techniques (such as boolean-based or time-based inferences) to systematically extract sensitive data, including user credentials, personal identifiable information (PII), and database structure.
+* **Integrity:** Depending on database privileges and whether stacked queries are fully supported by the database driver and configuration, an attacker might be able to modify, insert, or delete records.
+* **Availability:** The inclusion of `waitfor delay` commands introduces intentional latency. Scaled across numerous concurrent requests, this technique can lead to database connection pool exhaustion, resulting in a Denial of Service (DoS) for legitimate users.
+
+### 5. Recommended Mitigation
+* **Parameterized Queries (Prepared Statements):** Ensure all user-supplied input parameters are handled via parameterized queries or prepared statements rather than dynamic SQL string concatenation. This ensures the database treats input strictly as data, never as executable code.
+* **Input Validation & Sanitization:** Implement strict allow-listing for expected inputs (e.g., checking that the `modo` parameter conforms strictly to predefined functional states rather than accepting arbitrary strings).
+* **Least Privilege:** Restrict database account privileges associated with the web application to the minimum necessary functions required for operation, disabling stacked queries or administrative operations where possible.
+* **Web Application Firewall (WAF):** Maintain and tune WAF rules to detect and block common SQL injection signatures and anomalous query structures automatically.
+
+### 6. Secure Code Fix
+*Since the specific backend language or framework implementation (beyond Java Server Pages / `.jsp`) is not fully detailed, language-neutral guidance and a standard Java JDBC prepared statement approach are provided below:*
+
+**Language-Neutral Guidance:**
+Never concatenate untrusted HTTP parameters directly into database query strings. Always utilize query abstraction layers, ORMs (like Hibernate/JPA), or native parameterized interfaces provided by your database driver.
+
+**Java / JDBC Secure Code Example:**
+```java
+// Vulnerable approach (Dynamic SQL concatenation)
+// String query = ""SELECT * FROM users WHERE mode = '"" + request.getParameter(""modo"") + ""'"";
+
+// Secure approach using PreparedStatement
+String query = ""SELECT * FROM users WHERE mode = ?"";
+try (PreparedStatement pstmt = connection.prepareStatement(query)) {
+    // The driver automatically sanitizes and treats this strictly as a parameter value
+    pstmt.setString(1, request.getParameter(""modo""));
+    try (ResultSet rs = pstmt.executeQuery()) {
+        // Process results safely
+    }
+} catch (SQLException e) {
+    // Log securely without exposing stack traces to the user
+}
+```","1. **Classification:** Malicious
+
+2. **Attack Type:** SQL Injection (SQLi) - specifically Time-Based Blind SQL Injection.
+
+3. **Explanation:** 
+   The request targets the `modo` parameter in a `POST` request to `/tienda1/publico/autenticar.jsp`. The parameter value contains URL-encoded SQL syntax: `'%2C'%270%27%2C'%270%27%2C'%270%27%29%3Bwaitfor+delay+%270%3A0%3A15%27%3B--`. 
+   
+   Decoded, this payload reads: `','0','0','0');waitfor delay '0:0:15';--`. 
+   - The single quotes and comma (`','`) attempt to break out of the original SQL query string context.
+   - The closing parenthesis and semicolon (`);`) attempt to properly terminate the original SQL statement.
+   - `waitfor delay '0:0:15'` is a Microsoft SQL Server (MSSQL) specific command designed to force the database to sleep for 15 seconds. If the application delays the HTTP response by 15 seconds, the attacker confirms that the parameter is vulnerable to SQL injection.
+   - `--` is the SQL comment indicator used to comment out the remainder of the original query, preventing syntax errors.
+
+4. **Recommendation:**
+   - **Input Validation & Parameterization:** Ensure the application uses parameterized queries (Prepared Statements) or an Object-Relational Mapper (ORM) for all database interactions, which fundamentally prevents untrusted input from being interpreted as SQL commands.
+   - **Input Sanitization:** Implement strict allow-listing for the `modo` parameter to ensure it only accepts expected, predefined values (e.g., standard alphanumeric states), rejecting any inputs containing SQL control characters like quotes, semicolons, or SQL keywords.
+   - **Web Application Firewall (WAF):** Configure the WAF to detect and block signatures associated with time-based delay functions (such as `waitfor delay`) and SQL manipulation attempts.",malicious
+75,malicious,SQLi,malicious,0.9962980151176453,SQLi,HIGH_PRIORITY_ALERT,"### 1. Incident Summary
+* **Timestamp:** 22/Nov/2026:20:39:21 +0000
+* **Source IP:** 192.168.145.132
+* **HTTP Method:** POST
+* **Target URI:** `/tienda1/publico/caracteristicas.jsp?id=%27%2C%270%27%29%3Bwaitfor+delay+%270%3A0%3A15%27%3B--`
+* **Observed Indicator:** The query parameter `id` contains URL-encoded SQL syntax (`', '0');waitfor delay '0:0:15';--`), specifically designed to cause a time delay in the database response.
+* **Status Code:** 200 (Note: A 200 OK status indicates the server processed the request, but does not definitively confirm successful exploitation without examining the response body and execution time).
+
+### 2. Classification
+* **Classifier Confidence:** 0.9963 (MALICIOUS)
+
+### 3. Potential Attack Type
+* **Time-Based Blind SQL Injection (SQLi) with Stacked Queries:** The attacker attempts to manipulate the SQL statement by closing an existing string literal and parenthesis, appending a stacked command (`waitfor delay '0:0:15'`), and commenting out the remainder of the original query (`--`). The artificial delay is used as an indicator to confirm whether the application is vulnerable based on the response time.
+
+### 4. Potential Impact
+* **Unauthorized Database Access / Data Breaches:** If the underlying database and application permit stacked queries and vulnerable dynamic SQL construction, attackers can extract sensitive data (e.g., user credentials, personal identifiable information).
+* **Denial of Service (DoS):** Time-delay functions (`WAITFOR DELAY`, `SLEEP`) force threads to hang. High volumes of such requests can exhaust database connection pools, degrading performance or causing the application to become unresponsive for legitimate users.
+* **Data Manipulation:** Depending on database privileges and permissions, stacked queries could theoretically allow `INSERT`, `UPDATE`, or `DELETE` operations.
+
+### 5. Recommended Mitigation
+* **Use Parameterized Queries (Prepared Statements):** Ensure that user-supplied input is treated strictly as data, not executable code, preventing the database from interpreting input characters (like quotes and semicolons) as SQL commands.
+* **Input Validation & Sanitization:** Implement strict type checking on the `id` parameter. If the ID is expected to be an integer, reject any input that fails integer validation.
+* **Disable Stacked Queries:** Configure database connection settings to disallow multiple SQL statements in a single query execution where possible.
+* **Principle of Least Privilege:** Ensure the database user account used by the web application has only the minimum necessary permissions required for its function.
+
+### 6. Secure Code Fix
+Since the specific programming language/framework implementation details behind the Java Server Page (`caracteristicas.jsp`) are not fully detailed beyond typical JDBC usage, the following language-neutral guidance and Java/JDBC example demonstrate the secure approach:
+
+**Language-Neutral Guidance:**
+Replace any concatenation or string formatting of user input into SQL strings with parameterized query placeholders (`?`). 
+
+**Secure Code Example (Java / JDBC):**
+```java
+// Vulnerable pattern to avoid:
+// String query = ""SELECT * FROM caracteristicas WHERE id = '"" + request.getParameter(""id"") + ""'"";
+
+// Secure pattern using PreparedStatement:
+String query = ""SELECT * FROM caracteristicas WHERE id = ?"";
+try (PreparedStatement pstmt = connection.prepareStatement(query)) {
+    // Safely bind the parameter as an integer or expected data type
+    int idValue = Integer.parseInt(request.getParameter(""id""));
+    pstmt.setInt(1, idValue);
+    
+    try (ResultSet rs = pstmt.executeQuery()) {
+        // Process results safely
+    }
+} catch (NumberFormatException e) {
+    // Handle invalid non-numeric input gracefully
+}
+```","1. **Classification:** Malicious
+
+2. **Attack Type:** SQL Injection (SQLi) - specifically, a Time-Based Blind SQL Injection.
+
+3. **Explanation:** 
+   * **Indicator of Compromise:** The `id` parameter contains URL-encoded SQL syntax: `','%27%27%2C%270%27%29%3Bwaitfor+delay+%270%3A0%3A15%27%3B--`, which decodes to `', '0'); waitfor delay '0:0:15';--`.
+   * **Mechanism:** This payload attempts to break out of the original SQL query context (using the single quote and comma), inject a secondary command (`waitfor delay '0:0:15'`, which is specific to Microsoft SQL Server to force a 15-second pause), and comment out the rest of the original query using `--`. 
+   * **Impact:** If vulnerable, attackers use time delays to infer database contents boolean-style or test for the presence of a database vulnerability without receiving direct data output in the HTTP response. It can also be leveraged to cause denial of service (DoS) by tying up database connection pools with delayed queries.
+
+4. **Recommendation:**
+   * **Use Parameterized Queries (Prepared Statements):** Ensure all database interactions use parameterized queries or ORM frameworks rather than concatenating user input directly into SQL strings.
+   * **Input Validation & Sanitization:** Implement strict allow-listing for the `id` parameter, ensuring it only accepts expected data types (e.g., integers).
+   * **Web Application Firewall (WAF):** Deploy and configure a WAF to detect and block common SQL injection patterns at the network edge.
+   * **Principle of Least Privilege:** Ensure the database user account used by the web application has the minimum necessary privileges, restricting access to administrative functions and system procedures.",malicious
+49,malicious,SQLi,benign,0.9854879975318909,,AUTO_CLOSE,"### 1. Incident Summary
+An HTTP POST request was received from the IP address `192.168.152.193` targeting `/tienda1/miembros/editar.jsp`. The request contains parameters typically associated with a user registration or profile update form. Within the `B1` parameter, the value includes an HTML/SSI-style string (`Registrar<!--#include file=""archivo_secreto"" -->`). The server responded with an HTTP status code `403` (Forbidden) and a content length of `4673` bytes.
+
+### 2. Classification: BENIGN
+*Note: Automated classification is not absolute proof and should be validated through context and deeper analysis if suspicious patterns emerge elsewhere.*
+
+### 3. Attack Type: N/A
+
+### 4. Potential Impact
+Since the automated classifier has categorized the request as benign (with a high confidence of 0.9855), no direct security impact or active exploit execution is confirmed. The presence of the Server Side Include (SSI)-like comment syntax within the `B1` button parameter (`Registrar<!--#include file=""archivo_secreto"" -->`) may indicate automated vulnerability scanning, fuzzing, or user input containing markup characters rather than a successful exploitation attempt. The HTTP `403` response suggests that the application or an intervening web application firewall (WAF) restricted access based on the request content or state.
+
+### 5. Recommended Mitigation: N/A
+
+### 6. Secure Code Fix: N/A","1. **Classification:** Malicious
+
+2. **Attack Type:** Server-Side Include (SSI) Injection / Command Injection
+
+3. **Explanation:** 
+The HTTP request targets a registration endpoint (`/tienda1/miembros/editar.jsp`) via a `POST` method. Within the `B1` parameter (commonly associated with a submit button value), the attacker has injected an SSI directive: `<!--#include file=""archivo_secreto"" -->`. 
+
+Server-Side Include (SSI) injection occurs when user-supplied input is improperly sanitized and passed directly into an SSI-enabled web parser. If the application or underlying web server processes this directive, it could lead to:
+* **Information Disclosure:** The contents of sensitive files (such as `archivo_secreto`, configuration files, or system files) could be appended to the HTTP response and exposed to the user.
+* **Remote Code Execution (RCE):** Depending on how the SSI configuration is set up on the web server, certain SSI directives (like `exec`) can allow the execution of arbitrary operating system commands.
+
+*(Note: The server responded with a `403 Forbidden` status code, indicating that a Web Application Firewall (WAF), security filter, or directory permissions successfully blocked the execution of the request.)*
+
+4. **Recommendation:**
+* **Input Validation & Sanitization:** Implement strict allow-listing for input fields. Parameters like buttons or form labels (`B1`) should never accept HTML tags, markup, or special characters such as `<!--` and `-->`.
+* **Disable Unnecessary SSI Processing:** Ensure that the web server (e.g., Apache, IIS, Nginx) only parses Server-Side Includes on files that specifically require them (e.g., `.shtml`), rather than processing them globally or within dynamic backend scripts (like `.jsp`).
+* **Web Application Firewall (WAF):** Maintain and tune WAF rules to automatically detect and drop requests containing injection vectors (such as SSI markup, SQLi, or XSS) before they reach the application tier, as evidenced by the successful `403` block in this log.",malicious
+119,malicious,SQLi,malicious,0.9963556528091431,SQLi,HIGH_PRIORITY_ALERT,"### 1. Incident Summary
+An HTTP POST request originating from the IP address `192.168.236.47` was directed at the endpoint `/tienda1/publico/anadir.jsp`. The query parameters contained suspicious input within the `cantidad` (quantity) field. Specifically, URL-encoded characters representing SQL syntax, string terminators, stacked queries, and a time-delay command were observed. The server responded with an HTTP status code `400` (Bad Request) and a content length of `1933` bytes, indicating that the request may have been rejected or malformed, though the attempt itself was successfully logged.
+
+### 2. Classification
+* **Classifier Status:** MALICIOUS
+* **Confidence:** 0.9964
+
+### 3. Potential Attack Type
+**SQL Injection (SQLi) – Time-Based Blind / Stacked Queries:**
+The attacker attempted to inject database commands into the `cantidad` parameter. The payload `28%27%2C%270%27%29%3Bwaitfor+delay+%270%3A0%3A15%27%3B--` decodes to:
+`28','0');waitfor delay '0:0:15';--`
+* The single quote (`'`) and closing parenthesis (`)`) attempt to break out of the original SQL statement context.
+* The semicolon (`;`) attempts to execute a stacked (subsequent) query.
+* The `waitfor delay '0:0:15'` command is specific to Microsoft SQL Server (MSSQL) and instructs the database engine to pause execution for 15 seconds.
+* The double-dash (`--`) comments out the remainder of the original query to prevent syntax errors.
+
+*Note on Evidence:* The indicators demonstrate a clear attempt at injecting malicious SQL commands. However, without inspecting the database query logs, application source code, or observing a confirmed 15-second response time delay, actual exploitation cannot be definitively confirmed.
+
+### 4. Potential Impact
+If the backend application is vulnerable (i.e., constructs SQL queries via vulnerable string concatenation rather than parameterized queries), successful execution of this attack could lead to:
+* **Denial of Service (DoS):** Forcing the database to delay responses by 15 seconds (or longer) for multiple concurrent requests can exhaust database connection pools and degrade application performance.
+* **Data Exfiltration / Manipulation:** Because stacked queries are permitted in certain database configurations, an attacker could potentially append arbitrary `SELECT`, `INSERT`, `UPDATE`, or `DELETE` statements.
+* **Database Enumeration:** Attackers often use time-based delays as an indicator to infer database structure or contents boolean-style when direct error messages are not returned.
+
+### 5. Recommended Mitigation
+* **Use Parameterized Queries / Prepared Statements:** Ensure all user-supplied input is handled via parameters, which strictly separates SQL code from user data. This is the primary defense against SQL injection.
+* **Adopt Object-Relational Mapping (ORM):** Utilize robust ORM frameworks (e.g., Hibernate, Entity Framework) that inherently abstract raw SQL string construction.
+* **Strict Input Validation:** Enforce strict data type validation. The `cantidad` (quantity) field should strictly accept integers. Any request containing characters like quotes (`'`), semicolons (`;`), or dashes (`--`) in a numeric field should be immediately rejected.
+* **Least Privilege Principle:** Ensure the database account used by the web application has the minimum necessary privileges, disabling stacked queries or administrative functions where appropriate.
+
+### 6. Secure Code Fix (Language-Neutral Guidance)
+When querying the database, avoid concatenating user input directly into SQL strings. Use parameterized statements instead. 
+
+**Vulnerable pattern (Conceptual):**
+```sql
+-- DANGEROUS: Direct concatenation allows syntax breakout and command stacking
+SELECT * FROM cart WHERE quantity = ' + userInput + ';
+```
+
+**Secure pattern (Parameterized query approach):**
+```java
+// Example using Java JDBC PreparedStatement to safely handle parameters
+String query = ""INSERT INTO cart (id, nombre, precio, cantidad) VALUES (?, ?, ?, ?)"";
+PreparedStatement pstmt = connection.prepareStatement(query);
+pstmt.setInt(1, Integer.parseInt(id));
+pstmt.setString(2, nombre);
+pstmt.setBigDecimal(3, precio);
+pstmt.setInt(4, Integer.parseInt(cantidad)); // Enforces numeric type validation
+pstmt.executeUpdate();
+```","1. **Classification:** Malicious
+
+2. **Attack Type:** SQL Injection (specifically, Time-Based Blind SQL Injection)
+
+3. **Explanation:** 
+The HTTP POST request targets a JavaServer Pages (JSP) endpoint (`/tienda1/publico/anadir.jsp`) and manipulates the `cantidad` parameter. The value of this parameter has been URL-encoded to inject SQL commands: `2', '0');waitfor delay '0:0:15';--`. 
+* The single quote (`'`) and parenthesis (`')`) attempt to break out of the original SQL query context.
+* The `waitfor delay '0:0:15'` command is a Microsoft SQL Server (MSSQL) specific instruction designed to force the database to pause execution for 15 seconds. Attackers use this time delay to infer whether their SQL injection is successful based on the response time of the server.
+* The comment characters (`--`) are used to comment out the remainder of the original developer's SQL query so the database does not throw a syntax error.
+* The HTTP response status `400` indicates that the server rejected the malformed request, potentially caught by a Web Application Firewall (WAF) or basic input validation.
+
+4. **Recommendation:**
+* **Use Parameterized Queries / Prepared Statements:** Ensure that all database interactions use parameterized queries or ORM frameworks rather than concatenating user input directly into SQL strings. This is the primary defense against SQL injection.
+* **Input Validation and Sanitization:** Implement strict allow-listing for expected input types (e.g., ensuring the `cantidad` parameter strictly accepts integers only).
+* **Web Application Firewall (WAF):** Maintain and tune WAF rules to detect and automatically block signature patterns associated with SQL injection (such as `waitfor delay`).
+* **Principle of Least Privilege:** Ensure the database account used by the web application has the minimum necessary privileges, limiting the potential damage if an injection succeeds.",malicious
+73,malicious,XSS,malicious,0.9958919286727905,XSS,FLAG_FOR_REVIEW,"### 1. Incident Summary
+An incoming HTTP `GET` request was recorded from the source IP address `192.168.183.96` targeting the `/search` endpoint. The query parameter `q` contains URL-encoded HTML/JavaScript tags (`%3CScRiPt%3Ealert(1)%3C/ScRiPt%3E`). The server responded with an HTTP `403 Forbidden` status code, indicating that a web application firewall (WAF) or security filter likely blocked the request before it could be processed by the application logic. 
+
+### 2. Classification
+* **Indicator Status:** Malicious Attack Attempt (Blocked / Unconfirmed Exploitation)
+* **Confidence:** High (0.9959)
+
+### 3. Potential Attack Type
+* **Cross-Site Scripting (XSS) - Reflected:** The payload utilizes HTML tag injection combined with JavaScript (`<ScRiPt>alert(1)</ScRiPt>`) inside a URL parameter. This is a classic signature of an attempt to perform reflected XSS, where an application takes untrusted input from an HTTP request and immediately reflects it in the immediate response without proper sanitization or encoding.
+
+### 4. Potential Impact
+* **Client-Side Execution:** If the application were vulnerable and reflected the input directly into the HTML body without encoding, the injected JavaScript would execute in the context of the victim's browser session.
+* **Session Hijacking:** Attackers can potentially access session cookies or tokens (`document.cookie`), allowing them to impersonate the user.
+* **Data Theft & Manipulation:** Execution of malicious scripts can lead to unauthorized actions performed on behalf of the user, keylogging, or defacement of the rendered page content.
+* *Note:* Because the server returned a `403 Forbidden` status code, there is no evidence that this exploitation attempt was successful.
+
+### 5. Recommended Mitigation
+* **Context-Aware Output Encoding:** Ensure all dynamic data reflected in HTTP responses is properly encoded based on where it appears in the document (e.g., HTML body, attribute, JavaScript variable). For HTML context, convert characters like `<`, `>`, `&`, `""`, and `'` to their respective HTML entities.
+* **Input Validation:** Implement strict allow-listing for expected input formats on parameters like search queries, rejecting requests containing unexpected HTML characters or script tags.
+* **Web Application Firewall (WAF):** Maintain and tune WAF rules (as demonstrated by the successful `403` block) to automatically drop or block requests containing known attack signatures.
+* **Content Security Policy (CSP):** Implement a robust CSP header to restrict the sources from which scripts can be loaded and executed, thereby mitigating the impact of any potential XSS vulnerabilities.
+
+### 6. Secure Code Fix
+Since the specific programming language or framework of the backend application is unknown, the following language-neutral guidance and generic examples apply:
+
+* **General Principle:** Never insert raw, untrusted user input directly into the Document Object Model (DOM) or HTML response.
+
+#### Example Concept (Context-Aware HTML Entity Encoding):
+When rendering the search query back to the user on the search results page (e.g., *“Results for: &lt;ScRiPt&gt;alert(1)&lt;/ScRiPt&gt;”*):
+* **Unsafe:** `<div>Results for: ` + userInput + `</div>`
+* **Safe:** Convert `userInput` using a trusted templating engine or built-in encoding library that transforms `<` into `&lt;` and `>` into `&gt;` before rendering.","1. **Classification:** Malicious
+
+2. **Attack Type:** Cross-Site Scripting (XSS) - Reflected XSS
+
+3. **Explanation:** 
+The HTTP request contains a URL-encoded script payload (`%3CScRiPt%3Ealert(1)%3C/ScRiPt%3E`, which decodes to `<ScRiPt>alert(1)</ScRiPt>`) within the search query parameter (`q`). This is a classic attempt to inject malicious JavaScript into a web application. If the application reflects this input back to the user in the response without proper sanitization or encoding, the browser would execute the script, potentially leading to session hijacking, credential theft, or malicious redirection. Note that the server responded with a `403 Forbidden` status code, indicating that a Web Application Firewall (WAF) or security control likely blocked the request.
+
+4. **Recommendation:**
+* **Input Validation & Output Encoding:** Ensure all user-supplied input is properly validated on the server side and contextually output-encoded (e.g., HTML entity encoding) before rendering it back in the browser.
+* **Web Application Firewall (WAF):** Maintain and tune WAF rules to detect and block common XSS patterns, as demonstrated by the successful `403` response in this log.
+* **Content Security Policy (CSP):** Implement a robust CSP to restrict the execution of unauthorized scripts and mitigate the impact of potential XSS vulnerabilities.",malicious
+67,malicious,XSS,malicious,0.9964104294776917,XSS,FLAG_FOR_REVIEW,"### 1. Incident Summary
+An incoming HTTP POST request from the IP address `192.168.242.142` was logged accessing the endpoint `/tienda1/publico/anadir.jsp`. The request query string contains URL-encoded characters within the `nombre` parameter (`paros%2522%2520style%3D%2522background%3Aurl%28javascript%3Aalert%28%27Paros%27%29%29`), which decodes to structural HTML and JavaScript components. The server responded with an HTTP status code `403` (Forbidden), indicating that a Web Application Firewall (WAF), security filter, or access control rule likely blocked the request before it could be processed.
+
+### 2. Classification
+* **Status:** Malicious (Classifier Confidence: 0.9964)
+* **Evidence of Exploitation:** None. The request was blocked by the server (`403` response), meaning there is insufficient evidence to confirm successful exploitation. The log indicates a blocked attack attempt rather than a confirmed compromise.
+
+### 3. Potential Attack Type
+* **Cross-Site Scripting (XSS):** Specifically, Reflected or Stored XSS injection attempt. The attacker injected HTML attribute context (`style=""...""`) paired with a dangerous URI scheme (`javascript:alert(...)`) into the `nombre` parameter, attempting to trick the application into rendering malicious script execution context when the parameter value is reflected back to a user.
+
+### 4. Potential Impact
+* **Client-Side Execution:** If the application fails to sanitize or encode the `nombre` parameter before rendering it in the HTML response, the injected JavaScript (`alert('Paros')`) could execute within the context of a victim's browser session.
+* **Session Hijacking & Defacement:** Successful XSS can lead to session token theft, manipulation of page content, redirection to malicious sites, or unauthorized actions performed on behalf of the authenticated user.
+
+### 5. Recommended Mitigation
+* **Context-Aware Output Encoding:** Ensure that all untrusted user input reflected in the HTTP response is properly encoded according to its output context (e.g., HTML body encoding, attribute encoding, or JavaScript encoding) before rendering.
+* **Input Validation:** Implement strict allow-listing for expected input formats on parameters like `nombre` (e.g., restricting unexpected special characters like quotes, equal signs, and parentheses).
+* **Content Security Policy (CSP):** Deploy a robust CSP header to restrict script execution sources and mitigate the impact of potential XSS injection vulnerabilities.
+
+### 6. Secure Code Fix
+Because the exact backend programming language/framework is not explicitly specified beyond the file extension (`.jsp` indicating Java Server Pages), language-neutral guidance and a standard Java/JSP encoding approach are provided below:
+
+* **Language-Neutral Guidance:**
+  Never trust input from HTTP parameters. Always encode data right before it is inserted into the DOM or rendered within an HTTP response. Avoid utilizing unsafe sinks (such as direct innerHTML assignments in client-side scripts) with untrusted parameters.
+
+* **JSP / Java Mitigation Example (OWASP ESAPI or Standard JSTL):**
+  When rendering dynamic parameters inside HTML or attributes, use JSTL escaping (`c:out`) or enterprise security libraries to neutralize special characters:
+  
+  ```jsp
+  <%@ taglib prefix=""c"" uri=""http://java.sun.com/jsp/jstl/core"" %>
+  <!-- The c:out tag automatically escapes XML/HTML special characters by default -->
+  <c:out value=""${param.nombre}"" />
+  ```","1. **Classification:** Malicious
+
+2. **Attack Type:** Cross-Site Scripting (XSS) / HTML Injection (specifically reflected XSS utilizing URL-encoded JavaScript execution via a style attribute)
+
+3. **Explanation:** 
+   The raw log shows a POST request to `/tienda1/publico/anadir.jsp` with a crafted `nombre` parameter: `paros%2522%2520style%3D%2522background%3Aurl%28javascript%3Aalert%28%27Paros%27%29%29`. 
+   - The input contains double URL-encoded quotes (`%2522`), a CSS `style` attribute injection (`style=""background:url(javascript:alert('Paros'))""`), and JavaScript execution attempts via the `javascript:` pseudo-protocol within a CSS context.
+   - If the application reflects the `nombre` parameter back into the HTTP response (such as in the HTML body or inside an HTML tag attribute) without proper sanitization, contextual output encoding, or input validation, a victim's browser would execute the injected JavaScript. This could lead to session hijacking, credential theft, or unauthorized actions performed on behalf of the user.
+   - Note: The server responded with a `403 Forbidden` status code, indicating that a Web Application Firewall (WAF) or security control likely blocked the request.
+
+4. **Recommendation:**
+   - **Input Validation:** Implement strict allow-listing for expected input formats and lengths on parameters like `nombre`.
+   - **Output Encoding:** Ensure all user-supplied data is properly context-aware encoded (e.g., HTML entity encoding) before being reflected in the HTML response.
+   - **Content Security Policy (CSP):** Deploy a strong CSP header to restrict the execution of inline scripts and disallow dangerous sources (such as `javascript:` URIs in CSS).
+   - **Web Application Firewall (WAF):** Maintain and tune WAF rules to ensure payloads containing script tags, event handlers, or pseudo-protocol injections are successfully detected and blocked (as observed by the 403 response).",malicious
+91,malicious,XSS,malicious,0.9957451224327087,SQLi,HIGH_PRIORITY_ALERT,"### 1. Incident Summary
+An HTTP POST request was received from the IP address `192.168.110.190` targeting the endpoint `/tienda1/miembros/editar.jsp`. The request contains a user registration form submission (`modo=registro`) where the parameter `cp` (postal code) includes embedded HTML and JavaScript tags (`<SCRIPT>alert(""Paros"");</SCRIPT>`). The server responded with an HTTP status code `400` and a content length of `4497`, indicating a client-side error or potential rejection by a web application firewall (WAF) or input validation routine.
+
+### 2. Classification
+* **Status:** Malicious Indicator Detected (Classifier Confidence: 0.9957)
+* **Evidence:** The presence of HTML/JavaScript tags embedded within the `cp` (postal code) parameter.
+
+### 3. Potential Attack Type
+* **Cross-Site Scripting (XSS) / Reflected or Stored XSS Attempt:** The attacker is attempting to inject malicious client-side scripts via form parameters (`cp`). If the application processes this input and reflects it back in an HTML response (or stores it in a database and displays it later to administrators or users) without proper sanitization or context-aware encoding, the script will execute in the victim's browser context.
+
+### 4. Potential Impact
+* **Session Hijacking:** Execution of arbitrary JavaScript can allow an attacker to access session tokens, cookies, or sensitive local storage data.
+* **Defacement or Phishing:** Attackers can manipulate the DOM to display fraudulent content or phishing login forms to other users.
+* **Unauthorized Actions:** If the script executes in the context of an authenticated user (such as an administrator reviewing user profiles), the attacker could perform actions on behalf of the user.
+
+*Note: The presence of the payload and a `400` response indicates a blocked or rejected request, which demonstrates an indicator of an attack attempt rather than confirmed exploitation.*
+
+### 5. Recommended Mitigation
+* **Input Validation:** Implement strict allow-listing (validation) for all input fields. A postal code (`cp`) should strictly conform to expected patterns (e.g., specific length and numeric constraints) and reject unexpected characters like `<` or `>`.
+* **Context-Aware Output Encoding:** Ensure that all user-supplied data rendered within HTML, attributes, or JavaScript contexts is properly encoded (e.g., converting `<` to `&lt;` and `>` to `&gt;`) to prevent the browser from interpreting data as executable code.
+* **Content Security Policy (CSP):** Implement a robust CSP to restrict the sources from which scripts can be loaded and executed, thereby mitigating the impact of potential XSS injections.
+
+### 6. Secure Code Fix (Language-Neutral Guidance)
+To protect Java Server Pages (JSP) and backend servlets from XSS vulnerabilities:
+
+1. **Validate on Ingestion:** Ensure input parameters are validated against strict business rules before processing.
+   ```java
+   // Example Java validation for postal code (digits only, specific length)
+   String cp = request.getParameter(""cp"");
+   if (cp == null || !cp.matches(""^[0-9]{4,5}$"")) {
+       // Handle invalid input / reject request
+       response.sendError(HttpServletResponse.SC_BAD_REQUEST, ""Invalid postal code format."");
+       return;
+   }
+   ```
+
+2. **Encode on Output:** When rendering user input back into JSP pages, avoid raw expressions like `<%= ... %>` or unescaped JSTL tags. Use standard escaping libraries (such as OWASP Java Encoder or JSTL `c:out` which encodes HTML by default):
+   ```jsp
+   <%@ taglib prefix=""c"" uri=""http://java.sun.com/jsp/jstl/core"" %>
+   <!-- c:out automatically escapes HTML entities, neutralizing script tags -->
+   <c:out value=""${param.cp}"" />
+   ```","1. **Classification:** Malicious
+
+2. **Attack Type:** Cross-Site Scripting (XSS) - Specifically, Stored/Reflected XSS via HTTP GET parameters in a POST request context.
+
+3. **Explanation:** 
+The HTTP request contains a `POST` method targeting an account editing or registration endpoint (`/tienda1/miembros/editar.jsp`). Within the query string parameters, the `cp` (postal code) parameter has been injected with HTML and JavaScript payload: `41111<SCRIPT>alert(""Paros"");</SCRIPT>`. 
+
+If the application takes this input and reflects it back into the HTTP response (or stores it in a database and later renders it to users or administrators without proper output encoding), the browser will execute the injected JavaScript. This can lead to session hijacking, credential theft, or unauthorized actions performed on behalf of the user viewing the rendered data. (Note: The server responded with a `400 Bad Request`, indicating the web application firewall or server may have rejected the malformed input or syntax, but the intent of the request remains an attack vector).
+
+4. **Recommendation:** 
+* **Input Validation & Sanitization:** Implement strict validation on all input fields. For the `cp` (postal code) parameter, enforce a strict numeric regex pattern (e.g., matching standard postal code formats) rather than allowing arbitrary alphanumeric and special characters.
+* **Context-Aware Output Encoding:** Ensure that any user-supplied data rendered in the HTML response is properly encoded (e.g., converting `<` to `&lt;` and `>` to `&gt;`) so the browser treats it as text rather than executable code.
+* **Implement a Web Application Firewall (WAF):** Utilize a WAF to detect and automatically block requests containing common attack signatures such as `<script>` tags.
+* **Content Security Policy (CSP):** Deploy a strong CSP to restrict the execution of inline scripts and mitigate the impact of potential XSS vulnerabilities.",malicious
+70,malicious,XSS,malicious,0.9963950514793396,XSS,FLAG_FOR_REVIEW,"### 1. Incident Summary
+An HTTP POST request originating from the IP address `192.168.98.81` was directed to the authentication endpoint `/tienda1/publico/autenticar.jsp`. The request includes suspicious input within the `pwd` parameter, containing HTML attribute injection and JavaScript URI schemes. The classifier has flagged this request as malicious with high confidence (0.9964).
+
+### 2. Classification
+* **Status:** Malicious (Based on classifier result and payload indicators)
+* **Confidence:** 0.9964
+* **Indicators:** Double-URL-encoded quotation marks, an HTML `style` attribute injection (`style=""background:url(javascript:alert('Paros'))""`), and embedded JavaScript execution primitives (`alert`).
+
+### 3. Potential Attack Type
+* **Cross-Site Scripting (XSS) / Stored or Reflected XSS via HTML Injection:** The attacker is attempting to inject malicious HTML and JavaScript into an input field (`pwd`), which may be improperly handled and reflected back to the user within an HTML context or an attribute context (e.g., inside an error message displaying the failed login attempt or username/password field).
+
+### 4. Potential Impact
+* **Execution of Arbitrary JavaScript:** If the application reflects the unencoded password parameter inside an HTML page or attribute, the browser may execute the injected JavaScript.
+* **Session Hijacking:** Attackers can access cookies or session tokens via JavaScript if they are not adequately protected by `HttpOnly` flags.
+* **Page Defacement / Manipulation:** Injected styles and scripts can alter the DOM and manipulate what the user sees on the page.
+
+### 5. Recommended Mitigation
+* **Context-Aware Output Encoding:** Ensure that all user-supplied data reflected in the HTTP response is properly encoded based on its context (e.g., HTML body encoding, attribute encoding, or JavaScript encoding) before rendering it to the client.
+* **Input Validation:** Implement strict allow-listing for expected input formats on sensitive fields like passwords and usernames.
+* **Content Security Policy (CSP):** Implement a robust CSP to restrict the execution of inline scripts and unauthorized JavaScript sources.
+* **Secure Cookie Configuration:** Ensure sensitive cookies (like session identifiers) have the `HttpOnly`, `Secure`, and `SameSite` flags enabled to mitigate potential impact from XSS.
+
+### 6. Secure Code Fix
+Since the exact backend framework language (other than JSP/Java) is not fully specified beyond Java Server Pages (`.jsp`), the following language-neutral and Java-oriented guidance is provided to properly encode untrusted output and prevent XSS.
+
+**Java / JSP Mitigation Guidance:**
+Avoid outputting raw request parameters directly into the HTML response. Use modern templating engines with automatic escaping or explicitly encode the output using OWASP Java Encoder libraries.
+
+*Example using OWASP Java Encoder in Java/JSP:*
+```jsp
+<%@ page import=""org.owasp.encoder.Encode"" %>
+<%
+    // Safely retrieve and encode the parameter before rendering it in HTML context
+    String pwdInput = request.getParameter(""pwd"");
+    String safePwd = Encode.forHtml(pwdInput);
+%>
+<!-- Render safely -->
+<input type=""text"" name=""pwd"" value=""<%= safePwd %>"" />
+```","1. **Classification:** Malicious
+
+2. **Attack Type:** Cross-Site Scripting (XSS) / SQL Injection attempt (Specifically, stored/reflected XSS via URL-encoded JavaScript execution injected into a parameter).
+
+3. **Explanation:** 
+   The log shows a HTTP POST request to an authentication endpoint (`autenticar.jsp`). Within the `pwd` parameter, the attacker has injected URL-encoded HTML and JavaScript payload: `A6om00%F14471paros%2522%2520style%3D%2522background%3Aurl%28javascript%3Aalert%28%27Paros%27%29%29`. 
+   
+   Decoding the payload reveals:
+   `A6om00ñ14471paros"" style=""background:url(javascript:alert('Paros'))`
+   
+   This payload attempts to break out of an HTML attribute using double quotes (`""`), inject a malicious `style` attribute containing a `javascript:` URI scheme, and execute arbitrary JavaScript (in this case, triggering an `alert('Paros')` pop-up). If the application improperly reflects the password or login parameters back into the HTML response without adequate sanitization or context-aware output encoding, it would lead to a Cross-Site Scripting vulnerability.
+
+4. **Recommendation:**
+   * **Context-Aware Output Encoding:** Ensure all user-supplied input reflected in the HTTP response is properly encoded based on where it appears in the HTML document (e.g., HTML body, attribute values, JavaScript context).
+   * **Input Validation & Sanitization:** Implement strict allow-listing for expected input formats on parameters like `login`, `modo`, and `pwd`.
+   * **Content Security Policy (CSP):** Deploy a robust CSP header to restrict the execution of inline scripts and unauthorized script sources, mitigating the impact of potential XSS vulnerabilities.
+   * **Web Application Firewall (WAF):** Ensure WAF rules are enabled to detect and block common payload patterns like `javascript:` injections and HTML attribute breakouts.",malicious
+138,malicious,XSS,malicious,0.9964398741722107,XSS,FLAG_FOR_REVIEW,"### 1. Incident Summary
+An HTTP POST request originating from the IP address `192.168.58.211` was received targeting the endpoint `/tienda1/publico/anadir.jsp`. The request contains heavily URL-encoded parameters within the query string and payload. Specifically, the `precio` parameter contains string injection patterns designed to break out of HTML attribute contexts (`%2522%2520style%3D%2522...`), injecting a `style` attribute combined with a `javascript:alert()` pseudo-protocol URI scheme. The server responded with an HTTP status code `500` (Internal Server Error), indicating that the application encountered an exception while processing the input.
+
+### 2. Classification
+* **Classifier Result:** MALICIOUS (Confidence: 0.9964)
+* **Indicators of Attack (IoAs):** Detected explicit HTML attribute injection characters and JavaScript execution vectors (`"" style=""background:url(javascript:alert('Paros'))`) within an unexpected parameter (`precio`, which appears to be intended for numeric pricing data).
+* **Exploitation Status:** **Unconfirmed.** The presence of attack payloads in the request log indicates an attempted injection attack (Indicator of Attack). The resulting HTTP `500` status code suggests the application failed, but without internal application logs or response body analysis, successful code execution or exploitation cannot be verified.
+
+### 3. Potential Attack Type
+* **Cross-Site Scripting (XSS) / Stored or Reflected XSS via Attribute Injection:** The attacker is attempting to inject malicious JavaScript into an application parameter that is likely rendered back to the user within an HTML context (such as an input field, table, or cart summary). 
+
+### 4. Potential Impact
+If the application reflects the unvalidated `precio` parameter directly into the HTML response without proper output encoding, successful exploitation could lead to:
+* **Execution of Arbitrary JavaScript:** Scripts running in the context of the victim's browser session.
+* **Session Hijacking:** Theft of session cookies or authentication tokens.
+* **Content Spoofing / Phishing:** Manipulation of the rendered Document Object Model (DOM) to display fraudulent elements to the user.
+
+### 5. Recommended Mitigation
+* **Context-Aware Output Encoding:** Ensure that any user-supplied data reflected in the HTML response is properly encoded based on its context (e.g., HTML body encoding, attribute encoding).
+* **Input Validation & Sanitization:** Enforce strict server-side validation on expected data types. The `precio` (price) parameter should strictly accept numeric or currency formats (e.g., regex matching `^\d+(\.\d{1,2})?$`), rejecting unexpected string characters like quotes (`""`), spaces, or CSS/JavaScript syntax entirely.
+* **Content Security Policy (CSP):** Implement a robust CSP header to restrict script execution sources and disallow inline scripts (`unsafe-inline`) and `javascript:` URIs.
+
+### 6. Secure Code Fix (Language-Neutral Guidance)
+Because the exact backend framework/language for the `.jsp` (JavaServer Pages) file is not fully specified with framework-level implementation details, the following language-neutral and JSP-specific guidance applies:
+
+* **Validation Example (Java):**
+  Validate the input against an expected format before processing:
+  ```java
+  String precioStr = request.getParameter(""precio"");
+  if (precioStr == null || !precioStr.matches(""^\\d+(\\.\\d{1,2})?$"")) {
+      // Reject input as invalid
+      response.sendError(HttpServletResponse.SC_BAD_REQUEST, ""Invalid price format"");
+      return;
+  }
+  ```
+
+* **Encoding Example (JSP / OWASP Encoder):**
+  When rendering dynamic data into HTML attributes, use an encoding library (such as the OWASP Java Encoder) rather than raw output:
+  ```jsp
+  <!-- Unsafe rendering: -->
+  <!-- <input value=""<%= request.getParameter(""precio"") %>""> -->
+
+  <!-- Secure rendering using OWASP Java Encoder: -->
+  <input value=""<%= org.owasp.encoder.Encode.forHtmlAttribute(request.getParameter(""precio"")) %>"">
+  ```","1. **Classification:** Malicious
+
+2. **Attack Type:** Cross-Site Scripting (XSS) / Injection
+
+3. **Explanation:** 
+   The HTTP request targets a shopping cart application endpoint (`/tienda1/publico/anadir.jsp`) and attempts to inject malicious input through the `precio` (price) parameter. 
+   
+   Looking at the URL-encoded payload in the `precio` parameter:
+   `85paros%2522%2520style%3D%2522background%3Aurl%28javascript%3Aalert%28%27Paros%27%29%29`
+   
+   Double decoding reveals the payload: 
+   `85paros"" style=""background:url(javascript:alert('Paros'))`
+   
+   This is an attempt at **Stored or Reflected Cross-Site Scripting (XSS)**. The attacker is trying to break out of an HTML attribute using double quotes (`""`) and inject inline CSS containing a JavaScript execution vector (`javascript:alert(...)`). If the application reflects this unvalidated input back into the HTTP response (e.g., displaying the price back to the user inside an HTML tag attribute), a victim's browser would execute the injected JavaScript upon rendering the page.
+
+4. **Recommendation:**
+   * **Input Validation & Sanitization:** Implement strict whitelist-based input validation on the backend for the `precio` parameter, ensuring that only numeric data is accepted.
+   * **Context-Aware Output Encoding:** Ensure all user-supplied data reflected in HTTP responses is properly HTML-encoded according to the context (e.g., encoding quotes, angle brackets, and ampersands) to prevent the browser from interpreting data as executable code.
+   * **Content Security Policy (CSP):** Deploy a strong CSP header to restrict where scripts can be loaded from and to disable unsafe execution vectors like `javascript:` URLs in CSS styles.",malicious
+8,malicious,PathTraversal,malicious,0.9954020977020264,PathTraversal,HIGH_PRIORITY_ALERT,"### 1. Incident Summary
+An HTTP GET request was received from the source IP address `192.168.238.231` targeting the `/download` endpoint. The query parameter `file` contains double-URL-encoded directory traversal sequences (`..%252f`, which decodes to `../`) aimed at accessing the sensitive system file `/etc/passwd`. The server responded with an HTTP status code `200` and a content length of `805` bytes, though further investigation is required to determine if this response represents successful exploitation or a customized error page.
+
+### 2. Classification
+* **Status:** Malicious (Confidence: 0.9954)
+* **Detected Indicators:** 
+  * Presence of directory traversal sequences (`..%252f` / `../`) within the `file` parameter.
+  * Direct targeting of a known sensitive system file (`/etc/passwd`).
+* **Exploitation Status:** *Potential/Unconfirmed*. While the request strongly indicates an active attack attempt, the HTTP `200 OK` response status requires verification against the response body to confirm whether the sensitive file contents were actually returned to the client or if the application gracefully handled the request.
+
+### 3. Potential Attack Type
+* **Path Traversal / Directory Traversal** (OWASP: A01:2021-Broken Access Control)
+
+### 4. Potential Impact
+* **Confidentiality Breach:** Successful exploitation allows unauthorized users to read sensitive server files, configuration files, source code, or system credentials (such as `/etc/passwd`).
+* **System Reconnaissance:** Attackers can gather information about system users, software versions, and internal file structures to plan subsequent, more targeted attacks.
+
+### 5. Recommended Mitigation
+* **Avoid Direct File System Access:** Do not use raw user-supplied input to directly construct file paths.
+* **Use Indirect References (IDMaps):** Map user input to pre-defined, safe identifiers or database keys rather than accepting file paths or filenames directly.
+* **Implement Strict Input Validation:** Validate user input against a strict allowlist of permitted characters, filenames, or extensions.
+* **Enforce Principle of Least Privilege:** Ensure the web application runs with minimal file system permissions, restricting access strictly to the designated application directory.
+
+### 6. Secure Code Fix
+*Language-Neutral Guidance:*
+To fix path traversal vulnerabilities safely, applications should resolve absolute canonical paths and explicitly verify that the target file resides strictly within the intended base directory before performing any read operations. 
+
+* **Step 1:** Retrieve the base directory's absolute canonical path.
+* **Step 2:** Combine the base path with the requested file identifier and resolve its absolute canonical path.
+* **Step 3:** Assert that the resolved file path starts with the base directory path string. If the check fails, abort the operation and deny access.","1. **Classification:** Malicious
+2. **Attack Type:** Path Traversal / Directory Traversal (specifically utilizing double URL encoding)
+3. **Explanation:** 
+   The request attempts to exploit a vulnerability in the `/download` endpoint via the `file` parameter. The attacker used double URL encoding (`..%252f`, which decodes to `..%2f` and then `../`) to bypass basic input filters or signature-based security controls designed to catch standard `../` sequences. The goal is to traverse up the directory structure from the web root to access sensitive system files outside the intended scope—in this case, `/etc/passwd`, which contains user account information. The `200 OK` HTTP status code combined with a payload size of `805` bytes strongly suggests that the request was successful and the sensitive file contents were returned to the client.
+4. **Recommendation:**
+   * **Input Validation and Sanitization:** Implement strict allowlisting for permitted filenames or download paths. Reject any input containing directory traversal sequences (`..`, `/`, `\`) or encoding variants.
+   * **Use Safe APIs:** Utilize secure file handling libraries and native platform APIs that prevent path traversal (e.g., resolving absolute paths and verifying they remain within the intended base directory).
+   * **Principle of Least Privilege:** Ensure the web server process runs with minimal permissions, preventing unauthorized read access to sensitive system files like `/etc/passwd`.
+   * **Web Application Firewall (WAF):** Configure the WAF to detect and block double-encoded directory traversal patterns and abnormal parameter inputs.",malicious
+50,malicious,PathTraversal,malicious,0.9964481592178345,PathTraversal,HIGH_PRIORITY_ALERT,"1. Incident Summary
+An HTTP POST request originating from the IP address `192.168.36.16` was directed at the authentication endpoint `/tienda1/publico/autenticar.jsp`. The request contained suspicious input within the `pwd` parameter, specifically utilizing Server-Side Include (SSI) syntax injected with operating system commands (`<!--#exec cmd=""rm -rf /;cat /etc/passwd"" -->`). The server responded with an HTTP status code `400` (Bad Request) and a content length of `4862` bytes.
+
+2. Classification
+- **Classifier Result:** Malicious (Confidence: 0.9964)
+- **Indicator Assessment:** The presence of SSI injection syntax combined with destructive shell commands (`rm -rf /`) and sensitive file access attempts (`cat /etc/passwd`) within the query parameters represents a clear indicator of attack (IoA). However, based on the logs alone (HTTP 400 response), there is insufficient evidence to confirm successful exploitation.
+
+3. Potential Attack Type
+- **Server-Side Include (SSI) Injection / Remote Code Execution (RCE):** The attacker is attempting to exploit a vulnerability where user-supplied input is evaluated as an SSI directive by the web server or application parser, allowing the execution of arbitrary system commands.
+- **Arbitrary File Access:** The inclusion of `cat /etc/passwd` indicates an attempt to read sensitive system configuration files.
+
+4. Potential Impact
+- **System Compromise:** Successful execution of the injected commands could lead to complete destruction of the file system (`rm -rf /`) or unauthorized access to critical system files and credentials (`/etc/passwd`), resulting in a total loss of confidentiality, integrity, and availability.
+
+5. Recommended Mitigation
+- **Input Validation and Sanitization:** Implement strict allow-listing for expected input formats on authentication parameters. Reject any input containing command injection characters or SSI directives (`<!--#`, `exec`, `cmd`).
+- **Disable Unused SSI Parsing:** Ensure that the web server or application container does not parse Server-Side Includes on dynamic endpoints (such as `.jsp` files) unless explicitly required and securely configured.
+- **Principle of Least Privilege:** Run the web application server with minimal privileges to prevent destructive commands (like `rm -rf /`) from affecting the entire operating system, even if RCE is achieved.
+- **Web Application Firewall (WAF):** Configure rules to detect and block requests containing shell execution patterns and SSI metacharacters.
+
+6. Secure Code Fix (Language-Neutral Guidance)
+- **Avoid Direct Command Execution:** Never pass raw, unvalidated user input to underlying operating system shells, process execution functions, or template engines.
+- **Context-Aware Encoding:** Ensure that parameters processed by the application are properly handled according to their context, treating them strictly as data rather than executable instructions.","**1. Classification:** 
+Malicious
+
+**2. Attack Type:** 
+Remote Code Execution (RCE) via Server-Side Inclusion (SSI) Injection (specifically targeting an Apache JSP/Servlet environment or misconfigured web server supporting SSI directives).
+
+**3. Explanation:** 
+The HTTP request contains a suspicious payload embedded within the `pwd` (password) parameter: 
+`%3C%21--%23exec+cmd%3D%22rm+-rf+%2F%3Bcat+%2Fetc%2Fpasswd%22+--%3E` 
+
+URL-decoded, this payload reads:
+`<!--#exec cmd=""rm -rf /;cat /etc/passwd"" -->`
+
+This is a classic Server-Side Inclusion (SSI) injection attempt. If the web application insecurely processes user input and passes it through an SSI interpreter, the server would execute the enclosed system commands. The injected command attempts to perform a catastrophic deletion of the filesystem (`rm -rf /`) followed by an exfiltration attempt of sensitive system files (`cat /etc/passwd`). 
+
+*Note:* The server responded with a `400` status code, indicating the request was likely malformed or blocked by a web server/WAF layer, meaning the attack may not have been successful.
+
+**4. Recommendation:**
+* **Input Validation & Sanitization:** Implement strict allow-listing for all input fields, especially authentication parameters. Reject any input containing HTML comments, shell metacharacters, or SSI directives (`<!--#...-->`).
+* **Disable Unused SSI Processing:** Ensure that the web server (e.g., Apache, Tomcat) does not parse SSI tags in user-supplied parameters or files that do not require it.
+* **Web Application Firewall (WAF):** Maintain and tune WAF rules to automatically detect and block attempts to inject shell commands and SSI syntax (as evidenced by this logged attempt).
+* **Least Privilege Principle:** Ensure the web server application runs with minimal system privileges to prevent successful RCE attacks from executing destructive commands like `rm -rf /` or reading sensitive files like `/etc/passwd`.",malicious
+81,malicious,PathTraversal,malicious,0.9839401245117188,PathTraversal,HIGH_PRIORITY_ALERT,"### 1. Incident Summary
+An HTTP POST request originating from the IP address `192.168.252.113` was received targeting the registration endpoint `/tienda1/publico/registro.jsp`. An inspection of the parameters reveals an embedded Server-Side Include (SSI) injection and Command Injection payload within the `cp` (postal code) parameter: `<!--#exec cmd=""rm -rf /;cat /etc/passwd"" -->`. The server responded with an HTTP `403 Forbidden` status code, indicating that a Web Application Firewall (WAF), proxy, or security filter likely blocked the malicious request before it could be processed by the application.
+
+### 2. Classification
+* **Status:** Malicious
+* **Confidence:** High (0.9839 classifier confidence supported by explicit command execution syntax)
+* **Indicator vs. Exploitation:** The presence of the SSI and OS command payload in the request parameters serves as a confirmed indicator of an attack attempt (specifically, an exploit probe). Because the server returned a `403` status, there is insufficient evidence to confirm successful exploitation.
+
+### 3. Potential Attack Type
+* **Server-Side Include (SSI) Injection / Remote Code Execution (RCE):** The attacker attempts to leverage SSI directives (`<!--#exec ... -->`) supported by certain web servers (such as Apache with `Includes` enabled) to execute arbitrary operating system commands directly on the host.
+* **Operating System Command Injection:** The specific commands (`rm -rf /` and `cat /etc/passwd`) attempt to destroy the filesystem and exfiltrate sensitive system files.
+
+### 4. Potential Impact
+If the application evaluates untrusted input as SSI directives and passes them to a command interpreter or shell, the potential impacts include:
+* **Arbitrary Code Execution:** Complete compromise of the underlying server infrastructure under the privileges of the web server process.
+* **Data Destruction:** The execution of `rm -rf /` (if run with sufficient privileges) could result in the catastrophic deletion of system files.
+* **Information Disclosure:** The execution of `cat /etc/passwd` allows unauthorized access to sensitive system user accounts.
+
+### 5. Recommended Mitigation
+* **Input Validation and Sanitization:** Implement strict allow-listing for all user-supplied input fields (e.g., ensuring postal code fields only accept alphanumeric characters matching a rigid regex pattern).
+* **Disable Unnecessary Features:** Ensure that Server-Side Includes (SSI) and similar parsing mechanisms are disabled on the web server unless explicitly required and securely configured.
+* **Least Privilege Principle:** Run the web application server and its associated database/services under low-privileged user accounts to limit the damage potential of a successful command execution attack.
+* **Web Application Firewall (WAF):** Maintain and tune WAF rules to automatically detect and block attempts to inject shell commands or SSI tags into standard input fields.
+
+### 6. Secure Code Fix (Language-Neutral Guidance)
+To securely handle user input and prevent injection vulnerabilities:
+1. **Context-Aware Encoding/Validation:** Never trust input originating from HTTP parameters. Validate input against a strict schema before processing or storing it.
+2. **Avoid Direct Command Execution:** Never pass raw user input directly to system shells, operating system functions, or templating engines that evaluate embedded directives. 
+
+*Example Validation Pattern (Regex for Postal Code):*
+Ensure that fields like `cp` strictly match expected formats (e.g., 5 digits for standard postal codes):
+```regex
+^[A-Za-z0-9\s\-]{3,10}$
+```
+If input fails the validation check, reject the request immediately rather than attempting to sanitize or parse it.","1. **Classification:** Malicious
+
+2. **Attack Type:** Remote Code Execution (RCE) via Server-Side Inclusion (SSI) Injection
+
+3. **Explanation:** 
+The HTTP POST request targets a user registration endpoint (`/tienda1/publico/registro.jsp`) and attempts to inject a malicious payload into the postal code (`cp`) parameter. 
+The injected payload contains an SSI directive: `<!--#exec cmd=""rm -rf /;cat /etc/passwd"" -->`. 
+* **Mechanism:** If the backend application improperly sanitizes input and passes this data into an SSI-enabled parser or processes it insecurely, the server will execute the enclosed shell command (`rm -rf /` to delete the filesystem, followed by reading the sensitive `/etc/passwd` file).
+* **Outcome:** The log indicates a response status code of `403 Forbidden`, suggesting that a Web Application Firewall (WAF), reverse proxy, or the application itself successfully blocked the request before execution could occur.
+
+4. **Recommendation:**
+* **Input Validation & Sanitization:** Ensure strict input validation on all parameters (especially the `cp` or postal code field) using allow-listing (e.g., accepting only numeric characters for postal codes).
+* **Disable Unused SSI Features:** If Server-Side Includes are not required by the application or specific pages, ensure they are disabled at the web server level (e.g., Apache/Nginx configuration) to prevent command execution vulnerabilities.
+* **WAF Tuning:** Verify that the Web Application Firewall rule that triggered the `403` response is actively logging and blocking similar injection attempts.
+* **Secure Coding Practices:** Use parameterized queries and avoid passing raw, user-supplied HTTP parameters directly into system shells, file operations, or template engines.",malicious
+55,malicious,PathTraversal,malicious,0.9964603781700134,PathTraversal,HIGH_PRIORITY_ALERT,"```markdown
+# Cybersecurity Incident Analysis Report
+
+## 1. Incident Summary
+An incoming HTTP POST request from the source IP address `192.168.236.243` targeted the endpoint `/tienda1/publico/pagar.jsp`. The query string parameters contain a suspicious payload injected into the `B1` parameter: `<!--#exec cmd=""rm -rf /;cat /etc/passwd"" -->`. The server responded with an HTTP status code `200` and a content length of `4282` bytes. While the response code indicates that the server processed the request, the logs alone do not confirm whether the command was successfully executed by the underlying application or operating system.
+
+## 2. Classification
+- **Status:** Malicious (High Confidence: 0.9965)
+- **Detected Indicators:** Presence of Server-Side Include (SSI) directives combined with OS shell commands (`rm -rf /`, `cat /etc/passwd`) within the HTTP request parameters.
+
+## 3. Potential Attack Type
+**Server-Side Includes (SSI) Injection / Remote Code Execution (RCE)**
+- *Description:* The attacker attempts to leverage SSI directives (`<!--#exec ... -->`) embedded within user-supplied input to execute arbitrary operating system commands on the server hosting the vulnerable JavaServer Page (`pagar.jsp`).
+
+## 4. Potential Impact
+- **System Integrity:** Commands like `rm -rf /` are intended to recursively delete files across the filesystem, which could lead to complete destruction of the operating system and application data.
+- **Confidentiality Breach:** Commands like `cat /etc/passwd` attempt to read sensitive system configuration files. If successful, this exposes user account structures.
+- **Total System Compromise:** Successful remote code execution typically grants the attacker the privileges of the web server process, potentially leading to full system takeover.
+
+## 5. Recommended Mitigation
+- **Input Sanitization and Validation:** Strictly validate and sanitize all user-supplied input against an allow-list. Disallow special characters, HTML tags, and command injection control sequences (such as `<`, `>`, `!`, `-`, and `#`).
+- **Disable Unused SSI Features:** If Server-Side Includes are not required by the application, ensure they are completely disabled in the web server or application server configuration.
+- **Principle of Least Privilege:** Run the web application and database services under unprivileged user accounts with restricted filesystem access to limit the blast radius of a potential compromise.
+- **Web Application Firewall (WAF):** Deploy and tune WAF rules to detect and block common injection patterns, including SSI and command injection signatures.
+
+## 6. Secure Code Fix
+*Language-Neutral Guidance:*
+- Avoid passing raw, unvalidated HTTP parameters directly into dynamic evaluation engines, system shells, or templating engines that parse SSI/markup tags.
+- If user input must be rendered or processed, ensure proper context-aware output encoding is applied to neutralize any executable markup or directives.
+```","1. **Classification:** Malicious  
+2. **Attack Type:** Remote Code Execution (RCE) via Server-Side Include (SSI) Injection  
+3. **Explanation:**  
+   The log shows an HTTP POST request targeting a JavaServer Pages (JSP) endpoint (`/tienda1/publico/pagar.jsp`). The attacker is injecting a payload into the `B1` parameter using Server-Side Include (SSI) syntax: `<!--#exec cmd=""rm -rf /;cat /etc/passwd"" -->`. 
+   
+   If the vulnerable application improperly parses and executes SSI directives within user-supplied input, the web server would execute the underlying OS commands. In this specific payload, the attacker attempts to recursively delete the root directory (`rm -rf /`) and subsequently read sensitive system files (`cat /etc/passwd`). Although the HTTP response status returned `200`, the actual success of the command execution depends on whether SSI is enabled on the server and if the web server process has sufficient privileges to run those commands.
+
+4. **Recommendation:**  
+   * **Input Validation & Sanitization:** Implement strict allow-listing for all input parameters, rejecting any input containing HTML comments, shell metacharacters, or SSI directives (`<!--#...-->`).
+   * **Disable Unnecessary Features:** Ensure that Server-Side Includes (SSI) are disabled on the web server unless explicitly required and securely configured.
+   * **Principle of Least Privilege:** Run the web application server with low-privileged service accounts to prevent destructive commands (such as `rm -rf /`) from impacting the entire operating system.
+   * **Web Application Firewall (WAF):** Deploy and configure WAF rules to detect and block common command injection and SSI injection patterns in HTTP request parameters.",malicious
+26,benign,none,benign,0.9845557808876038,,AUTO_CLOSE,"### 1. Incident Summary
+An HTTP GET request was received from the internal IP address `192.168.4.145` requesting the search endpoint (`/search?q=select+a+gift+from+our+store`). The application returned a `403 Forbidden` status code with a response size of 601 bytes. The query parameter contains the natural language phrase ""select a gift from our store.""
+
+### 2. Classification: BENIGN
+*(Note: Automated classification systems provide high-confidence estimations, such as the 0.9846 confidence score recorded here, but automated classification is not absolute proof and should be periodically reviewed by security personnel.)*
+
+### 3. Attack Type: N/A
+The request does not represent a cyber attack. The appearance of the SQL-like keyword ""select"" is part of a benign, user-entered search query (""select a gift from our store"") rather than a malicious SQL injection attempt.
+
+### 4. Potential Impact
+There is no adverse security impact or compromise resulting from this request. The `403 Forbidden` response indicates that access to the requested resource or search function was blocked or restricted by server-side policy, authorization controls, or web application firewall (WAF) rules, despite the content being non-malicious.
+
+### 5. Recommended Mitigation: N/A
+
+### 6. Secure Code Fix: N/A",1. Classification: BENIGN,benign
+36,benign,none,benign,0.9648194313049316,,AUTO_CLOSE,"### Incident Summary
+A client with IP address `192.168.146.199` issued an HTTP `GET` request for the URI `/files?path=reports/2026--final.pdf`. The server responded with a `403 Forbidden` status code and a response size of 3086 bytes, indicating that access to the requested resource was denied based on the server's access control policies or configurations.
+
+### Classification: BENIGN
+*Note: Automated classification systems provide probabilistic assessments and are not absolute proof of intent or safety.*
+
+### Attack Type: N/A
+
+### Potential Impact
+Since the request was classified as benign and resulted in a `403 Forbidden` status, the potential impact is negligible. The server successfully blocked unauthorized or restricted access to the file path requested by the client, preventing any unauthorized data disclosure.
+
+### Recommended Mitigation: N/A
+
+### Secure Code Fix: N/A","1. **Classification:** BENIGN
+
+2. **Attack Type:** N/A
+
+3. **Explanation:** The request attempts to access a specific file path (`reports/2026--final.pdf`) via a standard `GET` request. While parameter-based file access can sometimes be leveraged for directory traversal, the path provided uses a normal relative structure and does not contain traversal sequences (such as `../` or encoded variations like `%2e%2e%2f`), null bytes, or attempts to access sensitive system files (e.g., `/etc/passwd` or `win.ini`). The resulting `403 Forbidden` HTTP status code indicates that the web server denied access based on authorization policies, file permissions, or routing configuration, which is standard behavior for unauthorized or restricted file requests rather than a successful exploitation attempt.
+
+4. **Recommendation:** N/A",benign
+144,benign,none,benign,0.9850319623947144,,AUTO_CLOSE,"### 1. Incident Summary
+An HTTP GET request originating from IP address `192.168.46.233` was logged accessing the URI `/products?id=5&sort=price--desc`. The request resulted in an HTTP 200 OK status code, indicating a successful response from the server with a payload size of 1638 bytes. 
+
+### 2. Classification: BENIGN
+The automated classifier evaluated this request and categorized it as benign with a high confidence score of 0.985. Note that automated classification is not absolute proof and should be periodically reviewed in the context of broader application behavior.
+
+### 3. Attack Type: N/A
+No attack was detected or identified in this request.
+
+### 4. Potential Impact
+Based on the current analysis and classification, the potential impact is negligible/none, as the request conforms to normal application interaction patterns.
+
+### 5. Recommended Mitigation: N/A
+No attack remediation is required for a request classified as benign.
+
+### 6. Secure Code Fix: N/A
+No secure code fix is necessary for this request.","1. Classification: Malicious
+
+2. Attack Type: SQL Injection (SQLi) / Comment-based SQL Injection
+
+3. Explanation: 
+The HTTP request contains the parameter `sort=price--desc`. The double hyphen (`--`) is a standard SQL comment syntax in many relational database management systems (such as PostgreSQL, SQLite, and Oracle). An attacker uses this syntax to truncate the remainder of the original SQL query executed by the backend application, effectively neutralizing any trailing clauses (like `ORDER BY`, `AND`, or `OR`). The server responded with a `200 OK` status, which warrants further investigation into the application source code to determine if the query was successfully manipulated or if the input was safely parameterized.
+
+4. Recommendation:
+* **Parameterized Queries / Prepared Statements:** Ensure all database queries use parameterized inputs or prepared statements rather than dynamic string concatenation to completely neutralize SQL injection vectors.
+* **Input Validation:** Implement strict allow-lists for input parameters (e.g., ensuring the `sort` parameter only accepts predefined values like `asc` or `desc`).
+* **Web Application Firewall (WAF):** Configure WAF rules to detect and block common SQL injection patterns, such as SQL comment sequences (`--`, `/*`, `*/`) in unexpected input fields.",malicious
+45,benign,none,benign,0.991245448589325,,AUTO_CLOSE,"### 1. Incident Summary
+An HTTP GET request was received from the IP address `192.168.78.161` targeting the shopping cart functionality of a web application (`/tienda1/publico/anadir.jsp`). The request includes parameters typically associated with adding an item to a shopping cart (`id`, `nombre` [Jamón Ibérico], `precio`, `cantidad`, and action button `B1`). The automated classifier evaluated this request as benign with a 99.12% confidence score. 
+
+*Note: Automated classification is not absolute proof of safety and should be periodically reviewed in the context of broader application activity and traffic patterns.*
+
+### 2. Classification: BENIGN
+
+### 3. Attack Type: N/A
+
+### 4. Potential Impact
+Based on the current request content and classification, the potential impact is zero, as the transaction represents standard, expected application usage (adding an item to an e-commerce cart).
+
+### 5. Recommended Mitigation: N/A
+
+### 6. Secure Code Fix: N/A",1. **Classification:** BENIGN,benign
+133,benign,none,benign,0.9920092821121216,,AUTO_CLOSE,"1. Incident Summary
+A POST request originated from IP address `192.168.214.169` targeting `/tienda1/publico/anadir.jsp`. The parameters passed within the URI indicate a typical e-commerce cart-addition action, specifically adding an item (`id=1`, `nombre=Queso+Manchego`, `precio=100`, `cantidad=0`) with a localized button label (`B1=A%F1adir+al+carrito`). The automated classifier categorized this traffic as benign with high confidence. Note that automated classification is not absolute proof of safety and should be periodically audited alongside contextual logs.
+
+2. Classification: BENIGN
+
+3. Attack Type: N/A
+
+4. Potential Impact
+None identified based on the request structure and classification. The parameters reflect standard application logic for updating a shopping cart.
+
+5. Recommended Mitigation: N/A
+
+6. Secure Code Fix: N/A",1. Classification: BENIGN,benign
+129,benign,none,benign,0.959385097026825,,AUTO_CLOSE,"### 1. Incident Summary
+An HTTP POST request originated from IP address `192.168.112.2` targeting the registration endpoint `/tienda1/publico/registro.jsp`. The request submits standard user registration parameters, including username (`jobye`), password, personal details (name, surname, email, DNI, address, city, postal code, province), and additional form fields (`ntc` and button action `B1=Registrar`). The server responded with an HTTP status code `200` and a content length of `2075` bytes, indicating a successful transaction or form submission response.
+
+### 2. Classification: BENIGN
+*Note: Automated classification is not absolute proof and should be periodically reviewed alongside application context and behavioral telemetry.*
+
+### 3. Attack Type: N/A
+
+### 4. Potential Impact
+As this request represents standard user registration activity, the direct impact is benign, resulting in the creation of a new user account within the application (assuming valid input and backend processing). 
+
+### 5. Recommended Mitigation: N/A
+
+### 6. Secure Code Fix: N/A","1. **Classification:** Benign
+2. **Attack Type:** N/A
+3. **Explanation:** The log entry shows a standard HTTP POST request to a registration endpoint (`/tienda1/publico/registro.jsp`). The parameters passed in the query string contain standard user registration details (login, password, name, address, email, etc.) URL-encoded properly. While the request contains personal/dummy data typically associated with form submissions (including accented characters standard in Spanish addresses like ""Prats de Lluçanès""), there are no indicators of injection attacks (such as SQLi or XSS), path traversal, or unauthorized access attempts. The server responded with an HTTP status `200` and a payload size of `2075` bytes, indicating a successful transaction (likely the completion of a user account creation).
+4. **Recommendation:** N/A",benign
